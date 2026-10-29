@@ -1,0 +1,65 @@
+name: Pg driver and Red suite
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pg:
+    name: PostgreSQL (RakuAST=${{ matrix.rakuast }})
+    strategy:
+      fail-fast: false
+      matrix:
+        rakuast: ["0", "1"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RAKUDO_RAKUAST: ${{ matrix.rakuast }}
+      RED_SOURCE: ${{ github.workspace }}/.ci/red
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: red-ci-test
+      PGDATABASE: postgres
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: red-ci-test
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out Red master
+        uses: actions/checkout@v4
+        with:
+          repository: FCO/Red
+          ref: master
+          path: .ci/red
+      - uses: Raku/setup-raku@v1
+        with:
+          raku-version: "2026.09"
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev postgresql-client libsqlite3-dev uuid-dev
+          zef install --/test --test-depends --deps-only .
+          zef install --/test App::Prove6
+      - name: Run driver and Red master tests
+        run: |
+          set -o pipefail
+          bash tools/test.sh 2>&1 | tee pg-test-results.log
+      - name: Save PostgreSQL test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgresql-test-results-rakuast-${{ matrix.rakuast }}
+          path: pg-test-results.log

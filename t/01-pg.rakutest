@@ -1,0 +1,53 @@
+use Test;
+use Red:api<2>;
+use Red::Type::Json;
+
+plan :skip-all('Set RED_DATABASE to a disposable Pg database for integration tests')
+    unless (%*ENV<RED_DATABASE> // '').starts-with('Pg');
+
+my @conf = %*ENV<RED_DATABASE>.split(' ');
+my $name = @conf.shift;
+my $*RED-DB = database $name,
+    |@conf.map({ my ($key, $value) = .split('=', 2); $key => val $value }).Hash;
+
+model PgSerial { has Int $.id is serial }
+model NaturalKey { has Str $.id is id; has Str $.value is column }
+model CompositeKey { has Int $.a is id; has Str $.b is id; has Str $.value is column }
+model PgJson { has Int $.id is serial; has Json $.value is column{ :nullable } }
+schema(PgSerial, NaturalKey, CompositeKey, PgJson).drop.create;
+
+is PgSerial.^create.id, 1, 'empty insert retrieves generated id';
+is PgSerial.^create.id, 2, 'generated ids advance';
+my $natural = NaturalKey.^create(:id<alpha>, :value("back\\slash and 'quote"));
+is $natural.id, 'alpha', 'insert with a supplied string id';
+is $natural.value, "back\\slash and 'quote", 'bound strings round trip';
+my $composite = CompositeKey.^create(:2a, :b<bravo>, :value<test>);
+is $composite.a, 2, 'first composite key';
+is $composite.b, 'bravo', 'second composite key';
+
+PgJson.^create(:value{ 'dotted.key' => 42, emoji => '😀' });
+is PgJson.^all.map({ .value{'dotted.key'} }).head, 42, 'JSON object keys round trip';
+is PgJson.^all.map({ .value<emoji> }).head, '😀', 'JSON Unicode round trips';
+
+my $transaction = $*RED-DB.begin;
+$transaction.execute('INSERT INTO pg_serial DEFAULT VALUES');
+$transaction.rollback;
+is PgSerial.^all.elems, 2, 'rollback uses the same connection';
+$transaction = $*RED-DB.begin;
+$transaction.execute('INSERT INTO pg_serial DEFAULT VALUES');
+$transaction.commit;
+is PgSerial.^all.elems, 3, 'commit persists the transaction';
+
+throws-like { NaturalKey.^create(:id<alpha>, :value<duplicate>) },
+    X::Red::Driver::Mapped::Unique, 'map Pg duplicate key errors';
+throws-like { PgSerial.^create-table }, X::Red::Driver::Mapped::TableExists,
+    'map Pg table exists errors';
+
+subtest 'four-byte UTF-8 round trips', {
+    my $value = "ação 😀 back\\slash and 'quote";
+    my $row = NaturalKey.^create(:id<unicode>, :$value);
+    is $row.value, $value, 'bound value';
+    is NaturalKey.^load('unicode').value, $value, 'stored value';
+};
+
+done-testing;

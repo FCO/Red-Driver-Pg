@@ -1,0 +1,34 @@
+{
+  "api": "2",
+  "auth": "zef:FCO",
+  "authors": [
+    "Fernando Correa de Oliveira"
+  ],
+  "build-depends": [
+  ],
+  "depends": [
+    "DB::Pg",
+    "UUID",
+    "Red:api<2>"
+  ],
+  "description": "PostgreSQL driver for the Red ORM",
+  "license": "Artistic-2.0",
+  "name": "Red::Driver::Pg",
+  "perl": "6.d",
+  "provides": {
+    "Red::Driver::Pg": "lib/Red/Driver/Pg.rakumod"
+  },
+  "resources": [
+  ],
+  "source-url": "https://github.com/FCO/Red-Driver-Pg.git",
+  "tags": [
+    "ORM",
+    "database",
+    "PostgreSQL",
+    "Red"
+  ],
+  "test-depends": [
+    "App::Mi6"
+  ],
+  "version": "0.0.1"
+}
