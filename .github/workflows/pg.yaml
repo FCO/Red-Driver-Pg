@@ -52,7 +52,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libpq-dev postgresql-client libsqlite3-dev uuid-dev
           zef install --/test --test-depends --deps-only .
-          zef install --/test App::Prove6
+          zef install --/test --test-depends --deps-only .ci/red
+          zef install --/test App::Prove6 Config Config::Parser::json
       - name: Run driver and Red master tests
         run: |
           set -o pipefail

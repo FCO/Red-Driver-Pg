@@ -42,6 +42,12 @@ default port is `5432`.
 The test executor creates a separate disposable database for every test file and drops
 it afterward. The configured PostgreSQL user needs permission to create and drop databases.
 
+Install the test tooling and the dependencies of both checkouts:
+
+    zef install --/test --test-depends --deps-only .
+    zef install --/test --test-depends --deps-only /path/to/Red
+    zef install --/test App::Prove6 Config Config::Parser::json
+
 Set `RED_SOURCE` to a Red checkout and configure the connection with `PGHOST`, `PGPORT`,
 `PGUSER`, `PGPASSWORD`, and optionally `PGDATABASE` for the maintenance database. Then run:
 

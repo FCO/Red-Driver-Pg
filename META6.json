@@ -16,7 +16,8 @@
   "name": "Red::Driver::Pg",
   "perl": "6.d",
   "provides": {
-    "Red::Driver::Pg": "lib/Red/Driver/Pg.rakumod"
+    "Red::Driver::Pg": "lib/Red/Driver/Pg.rakumod",
+    "Red::Driver::Pg::SchemaReader": "lib/Red/Driver/Pg/SchemaReader.rakumod"
   },
   "resources": [
   ],

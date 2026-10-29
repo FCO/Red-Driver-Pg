@@ -1,0 +1,48 @@
+use Test;
+use Red:api<2>;
+
+plan :skip-all('Set RED_DATABASE to a disposable Pg database for integration tests')
+    unless (%*ENV<RED_DATABASE> // '').starts-with('Pg');
+
+my @conf = %*ENV<RED_DATABASE>.split(' ');
+my $name = @conf.shift;
+my $*RED-DB = database $name,
+    |@conf.map({ my ($key, $value) = .split('=', 2); $key => val $value }).Hash;
+
+model ReaderParent {
+    has Int $.id is serial;
+}
+
+model ReaderChild {
+    has Int $.id is serial;
+    has Int $.parent-id is referencing(*.id, :model<ReaderParent>);
+    has Str $.code is unique;
+    has Str $.left-key is unique<pair>;
+    has Str $.right-key is unique<pair>;
+}
+
+schema(ReaderChild, ReaderParent).drop.create;
+my $reader = $*RED-DB.schema-reader;
+ok $reader.tables-names.first(* eq 'reader_child').defined, 'list tables in the current schema';
+my $definition = $reader.table-definition('reader_child');
+is $definition.name, 'reader_child', 'read table name';
+ok $definition.exists, 'table exists';
+is $definition.columns.elems, 5, 'read all columns';
+ok $definition.columns.first(*.name eq 'id').pk, 'read primary key';
+my @constraints = $reader.constraints('reader_child');
+ok @constraints.first({ .<kind> eq 'u' && .<column_name> eq 'code' }),
+    'read single-column uniqueness';
+my %unique;
+%unique{.<name>}.push: .<column_name> for @constraints.grep(*.<kind> eq 'u');
+is-deeply %unique.values.first(*.elems == 2).Array, ['left_key', 'right_key'],
+    'read composite uniqueness in key order';
+is-deeply $definition.columns.first(*.name eq 'parent_id').references,
+    { table => 'reader_parent', column => 'id' }, 'read foreign key';
+ok $reader.constraints('reader_child').first(*.<kind> eq 'p'), 'list primary constraint';
+nok $reader.table-definition('missing_reader_table').exists, 'report missing table';
+
+$*RED-DB.execute('CREATE INDEX reader_code_index ON reader_child (code)');
+ok $reader.column-dependencies('reader_child', 'code').first(* eq 'reader_code_index').defined,
+    'find index dependencies for a column';
+
+done-testing;

@@ -1,6 +1,7 @@
 .precomp/
 .raku/
 .zef/
+.ci/
 *.db
 *.log
 test-results/

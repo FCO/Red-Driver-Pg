@@ -5,4 +5,5 @@ Revision history for Red::Driver::Pg
 0.0.1
     - Extract the PostgreSQL driver from Red into a separate distribution.
     - Add driver-specific tests and isolated PostgreSQL test databases.
+    - Include PostgreSQL catalog introspection through the schema reader.
     - Run the driver and upstream Red master test suites on GitHub Actions.
