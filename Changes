@@ -1,6 +1,8 @@
 Revision history for Red::Driver::Pg
 
 {{$NEXT}}
+
+0.0.1  2026-11-02T19:59:26Z
     - Restore the README and generate it from lib/Red/Driver/Pg.rakudoc.
     - Require Red 0.2.9 or later (API 2).
 
