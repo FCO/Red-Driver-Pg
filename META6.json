@@ -9,7 +9,7 @@
   "depends": [
     "DB::Pg",
     "UUID",
-    "Red:api<2>"
+    "Red:ver<0.2.9+>:api<2>"
   ],
   "description": "PostgreSQL driver for the Red ORM",
   "license": "Artistic-2.0",

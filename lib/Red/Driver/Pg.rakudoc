@@ -1,0 +1,86 @@
+=begin pod
+
+=head1 Red::Driver::Pg
+
+PostgreSQL driver for the L<Red|https://github.com/FCO/Red> ORM.
+
+This driver requires Red 0.2.9 or later with API 2 and is distributed separately from Red. Installing Red alone does not install
+C<DB::Pg> or require PostgreSQL client libraries.
+
+=head2 Install
+
+Install the PostgreSQL client library (C<libpq>) and then both distributions:
+
+    zef install Red Red::Driver::Pg
+
+=head2 Synopsis
+
+=begin code :lang<raku>
+use Red:api<2>;
+
+model Person {
+    has Int $.id is serial;
+    has Str $.name is column;
+}
+
+my $*RED-DB = database "Pg",
+    host => "127.0.0.1",
+    port => 5432,
+    dbname => "my_database",
+    user => "my_user",
+    password => "my_password";
+
+schema(Person).create;
+Person.^create: :name<Fernando>;
+.say for Person.^all;
+=end code
+
+The constructor accepts C<dbh>, C<user>, C<password>, C<host>, C<port>, and C<dbname>.
+C<dbh> can be an existing C<DB::Pg> object. The default host is C<127.0.0.1> and the
+default port is C<5432>.
+
+=head2 Tests
+
+The test executor creates a separate disposable database for every test file and drops
+it afterward. The configured PostgreSQL user needs permission to create and drop databases.
+
+Install the test tooling and the dependencies of both checkouts:
+
+    zef install --/test --test-depends --deps-only .
+    zef install --/test --test-depends --deps-only /path/to/Red
+    zef install --/test App::Prove6 Config Config::Parser::json Configuration
+
+Set C<RED_SOURCE> to a Red checkout and configure the connection with C<PGHOST>, C<PGPORT>,
+C<PGUSER>, C<PGPASSWORD>, and optionally C<PGDATABASE> for the maintenance database. Then run:
+
+    RED_SOURCE=/path/to/Red sh tools/test.sh
+
+This runs the driver-specific tests followed by the complete Red suite against PostgreSQL.
+C<TEST_JOBS> controls parallelism and defaults to 4. Set C<RAKUDO_RAKUAST=1> to test the
+RakuAST frontend.
+
+To run only the driver-specific tests:
+
+    prove6 -j 4 -e "bash $PWD/tools/pg-test-exec.sh" t
+
+GitHub Actions runs both suites with PostgreSQL 15, Rakudo 2026.09, the Red C<master>
+branch, and both RakuAST frontend settings.
+
+=head2 Documentation maintenance
+
+Edit C<lib/Red/Driver/Pg.rakudoc> to update this documentation. Mi6 generates
+C<README.md> from this file through the C<ReadmeFromPod> configuration in
+C<dist.ini>. Comments in the driver module are not the README source.
+
+=head2 Author
+
+Fernando Correa de Oliveira <fernandocorrea@gmail.com>
+
+=head2 Copyright and license
+
+Copyright 2018 Fernando Correa de Oliveira
+
+This library is free software; you can redistribute it and/or modify it under the
+Artistic License 2.0.
+
+=end pod
