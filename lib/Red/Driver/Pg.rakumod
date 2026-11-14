@@ -1,3 +1,6 @@
+use Red::Driver::Pg::AST;
+use Red::Driver::Pg::Support;
+use Red::Driver::Pg::Migrations;
 use Red::AST::RegexMatch;
 use Red::AST::RegexCapture;
 use Red::Driver::Pg::SchemaReader;
@@ -22,7 +25,7 @@ use Red::AST::CreateIndex;
 use Red::AST::Constraints;
 need UUID;
 
-unit class Red::Driver::Pg does Red::Driver::CommonSQL;
+unit class Red::Driver::Pg does Red::Driver::Pg::Migrations;
 
 has Str $!user;
 has Str $!password;
@@ -86,6 +89,9 @@ multi method translate(Red::AST::RegexMatch $_, $context?) {
 }
 
 multi method translate(Red::AST::Native::Operator $_, $context?) {
+    index-error("Unsupported PostgreSQL native operator: {.operator}")
+        unless .operator eq any('@>', '<@', '&&', '~', '~*', '!~', '!~*',
+            '=', '<>', '<', '<=', '>', '>=');
     my $ddl = ($context // '') eq 'index';
     my $left = self.translate(.left,
         !$ddl && .left ~~ Red::AST::Value ?? 'bind' !! $context);
@@ -94,7 +100,13 @@ multi method translate(Red::AST::Native::Operator $_, $context?) {
     "({$left.key} {.operator} {$right.key})" => [|$left.value, |$right.value]
 }
 
-multi method translate(Red::AST::Native::Range $_, $context?) {
+multi method translate(Red::Driver::Pg::AST::Range $_, $context?) {
+    index-error('Invalid PostgreSQL range constructor')
+        unless .range-type eq any(<numrange int4range int8range tsrange tstzrange daterange>);
+    if .values.elems == 3 && .values[2] ~~ Red::AST::Value {
+        index-error('Invalid PostgreSQL range bounds')
+            unless .values[2].value eq any('[)', '[]', '(]', '()');
+    }
     my @bind;
     my @values = .values.map(-> $value {
         my $translated = self.translate($value,
@@ -105,7 +117,7 @@ multi method translate(Red::AST::Native::Range $_, $context?) {
     "{.range-type}({@values.join(', ')})" => @bind
 }
 
-multi method translate(Red::AST::Exclude $_, $context?) {
+multi method translate(Red::Driver::Pg::AST::Exclude $_, $context?) {
     return '' => [] unless self.schema-definition-applies($_);
     self.validate-index-definition($_);
     index-error('GIN and BRIN indexes cannot implement exclusion constraints')
@@ -609,3 +621,5 @@ method product-value(Red::AST::Value:D $value) {
     "CAST({ $translated.key } AS { self.default-type-for-type($value.returns) })"
         => $translated.value
 }
+
+multi method type-by-name("serial" --> "serial") {}

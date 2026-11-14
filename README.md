@@ -3,7 +3,7 @@ Red::Driver::Pg
 
 PostgreSQL driver for the [Red](https://github.com/FCO/Red) ORM.
 
-This driver requires Red 0.2.9 or later with API 2 and is distributed separately from Red. Installing Red alone does not install `DB::Pg` or require PostgreSQL client libraries.
+This driver requires Red 0.2.10 or later with API 2 and is distributed separately from Red. Installing Red alone does not install `DB::Pg` or require PostgreSQL client libraries.
 
 Install
 -------
@@ -57,6 +57,8 @@ This runs the driver-specific tests followed by the complete Red suite against P
 To run only the driver-specific tests:
 
     prove6 -j 4 -e "bash $PWD/tools/pg-test-exec.sh" t
+
+`mi6 test` also runs the PostgreSQL integration files. Without a Pg `RED_DATABASE`, these files invoke the executor to create and remove their own databases, using `PGHOST` (default `127.0.0.1`), `PGPORT` (`5432`), and `PGUSER` (`postgres`). PostgreSQL and the `createdb`/`dropdb` client tools must be available; connection or database creation failures fail the tests instead of skipping them.
 
 GitHub Actions runs both suites with PostgreSQL 15, Rakudo 2026.09, the Red `master` branch, and both RakuAST frontend settings.
 

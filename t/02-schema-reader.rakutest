@@ -1,8 +1,10 @@
 use Test;
 use Red:api<2>;
 
-plan :skip-all('Set RED_DATABASE to a disposable Pg database for integration tests')
-    unless (%*ENV<RED_DATABASE> // '').starts-with('Pg');
+unless (%*ENV<RED_DATABASE> // '').starts-with('Pg') {
+    my $runner = $?FILE.IO.parent.parent.add('tools/pg-test-exec.sh').absolute;
+    exit run('bash', $runner, $?FILE.IO.absolute).exitcode;
+}
 
 my @conf = %*ENV<RED_DATABASE>.split(' ');
 my $name = @conf.shift;

@@ -4,7 +4,7 @@
 
 PostgreSQL driver for the L<Red|https://github.com/FCO/Red> ORM.
 
-This driver requires Red 0.2.9 or later with API 2 and is distributed separately from Red. Installing Red alone does not install
+This driver requires Red 0.2.10 or later with API 2 and is distributed separately from Red. Installing Red alone does not install
 C<DB::Pg> or require PostgreSQL client libraries.
 
 =head2 Install
@@ -62,6 +62,12 @@ RakuAST frontend.
 To run only the driver-specific tests:
 
     prove6 -j 4 -e "bash $PWD/tools/pg-test-exec.sh" t
+
+C<mi6 test> also runs the PostgreSQL integration files. Without a Pg C<RED_DATABASE>,
+these files invoke the executor to create and remove their own databases, using
+C<PGHOST> (default C<127.0.0.1>), C<PGPORT> (C<5432>), and C<PGUSER> (C<postgres>).
+PostgreSQL and the C<createdb>/C<dropdb> client tools must be available; connection
+or database creation failures fail the tests instead of skipping them.
 
 GitHub Actions runs both suites with PostgreSQL 15, Rakudo 2026.09, the Red C<master>
 branch, and both RakuAST frontend settings.

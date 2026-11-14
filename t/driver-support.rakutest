@@ -1,0 +1,27 @@
+use Test;
+use Red::Driver::Pg::Support;
+
+use Red::Driver::SQLite;
+use Red::Driver::Pg;
+
+class Settings does Red::Driver::Pg::Support {
+    multi method prepare(Str $sql) { die 'SQL is unavailable in this settings test' }
+    method schema-reader { die 'Schema is unavailable in this settings test' }
+    has Str $!host = 'db.example';
+    has Int $!port = 5433;
+    has Str $!user = 'reader';
+    has Str $!password = 'secret';
+    has Str $!dbname = 'project';
+}
+my $settings = Settings.bless;
+my %client = $settings.database-client;
+is-deeply %client<command>, ['psql'], 'native client';
+is-deeply %client<environment>, %(
+    PGHOST => 'db.example', PGPORT => '5433', PGUSER => 'reader',
+    PGDATABASE => 'project', PGPASSWORD => 'secret'), 'connection environment';
+is $settings.index-key-fingerprint('LOWER("email")'),
+    $settings.index-key-fingerprint('lower((email)::text)'), 'normalize implicit text casts';
+isnt $settings.index-key-fingerprint('id::text'),
+    $settings.index-key-fingerprint('id'), 'preserve explicit standalone casts';
+is Red::Driver::Pg.type-for-sql('serial'), 'UInt', 'PostgreSQL recognizes the portable serial type';
+done-testing;
