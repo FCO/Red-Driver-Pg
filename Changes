@@ -1,6 +1,8 @@
 Revision history for Red::Driver::Pg
 
 {{$NEXT}}
+
+0.0.2  2026-11-14T16:25:47Z
     - Require Red 0.2.10 or later (API 2).
     - Move PostgreSQL-specific migration, schema, regex rendering, and driver
       support implementations from Red into this distribution.
