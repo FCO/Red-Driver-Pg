@@ -51,8 +51,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libpq-dev postgresql-client libsqlite3-dev uuid-dev
-          zef install --/test --test-depends --deps-only .
           zef install --/test --test-depends --deps-only .ci/red
+          # Satisfy the driver's Red dependency from the checkout under test.
+          # Installing driver dependencies first fetches the published Red release.
+          zef install --/test .ci/red
+          zef install --/test --test-depends --deps-only .
           zef install --/test App::Prove6 Config Config::Parser::json Configuration
       - name: Run driver and Red master tests
         run: |

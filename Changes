@@ -1,6 +1,15 @@
 Revision history for Red::Driver::Pg
 
 {{$NEXT}}
+    - Require Red 0.2.10 or later (API 2).
+    - Move PostgreSQL-specific migration, schema, regex rendering, and driver
+      support implementations from Red into this distribution.
+    - Provide PostgreSQL range constructors and exclusion constraint traits
+      through Red::Driver::Pg::AST and Red::Driver::Pg::Schema.
+    - Validate native operators, range constructors, and range bounds.
+    - Add tests for driver support, schema constraints, and regex rendering.
+    - Install the Red master checkout before driver dependencies in CI so the
+      test suites use the intended Red version.
 
 0.0.1  2026-11-02T19:59:26Z
     - Restore the README and generate it from lib/Red/Driver/Pg.rakudoc.
