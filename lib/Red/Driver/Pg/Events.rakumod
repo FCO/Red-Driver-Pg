@@ -29,8 +29,12 @@ method global-event-identifier(Str:D $kind, Str:D $table --> Str:D) {
 #| DB::Pg can consume notifications only when its epoll dependency is loadable.
 method supports-global-events(--> Bool:D) {
     return False unless self.dbh.defined;
-    try require ::('epoll');
-    ::('epoll') !~~ Failure
+    my $epoll = try {
+        require ::('epoll');
+        ::('epoll')
+    };
+    return False if $!;
+    $epoll.^name eq 'epoll'
 }
 
 #| AFTER INSERT trigger publishing the primary key through pg_notify.
