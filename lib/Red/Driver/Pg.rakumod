@@ -36,6 +36,24 @@ has $.dbh;
 
 method schema-reader { Red::Driver::Pg::SchemaReader.new(:driver(self)) }
 
+# Resolve the global-event hooks inherited from Red::Driver::Events and
+# Red::Driver::Pg::Events.
+method supports-global-events(--> Bool:D) {
+    self.Red::Driver::Pg::Events::supports-global-events
+}
+method global-event-triggers(Mu:U $model --> Array:D) {
+    self.Red::Driver::Pg::Events::global-event-triggers($model)
+}
+method migration-drop-global-event-trigger(Str:D $table, Str:D $name --> Str:D) {
+    self.Red::Driver::Pg::Events::migration-drop-global-event-trigger($table, $name)
+}
+method listen-global-events(@models, &on-event) {
+    self.Red::Driver::Pg::Events::listen-global-events(@models, &on-event)
+}
+method global-event-listener-driver {
+    self.Red::Driver::Pg::Events::global-event-listener-driver
+}
+
 method supports-index-method(Str $method --> Bool) {
     so $method eq any('', |<btree hash gin gist spgist brin>)
 }

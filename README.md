@@ -3,7 +3,7 @@ Red::Driver::Pg
 
 PostgreSQL driver for the [Red](https://github.com/FCO/Red) ORM.
 
-This driver requires Red 0.2.10 or later with API 2 and is distributed separately from Red. Installing Red alone does not install `DB::Pg` or require PostgreSQL client libraries.
+This driver requires Red 0.2.15 or later with API 2 and is distributed separately from Red. Installing Red alone does not install `DB::Pg` or require PostgreSQL client libraries.
 
 Install
 -------
@@ -36,6 +36,13 @@ Person.^create: :name<Fernando>;
 ```
 
 The constructor accepts `dbh`, `user`, `password`, `host`, `port`, and `dbname`. `dbh` can be an existing `DB::Pg` object. The default host is `127.0.0.1` and the default port is `5432`.
+
+Global events
+-------------
+
+Models marked with `is global-notifiable` publish committed inserts through PostgreSQL `AFTER INSERT` triggers and `pg_notify` on the `red_events` channel. Notifications are delivered at commit, so `ResultSeq.Supply` works across processes and nodes without local duplicate events. Trigger DDL is captured in migration snapshots.
+
+`DB::Pg` LISTEN support depends on the `epoll` module. When it is unavailable this driver reports no global-event support and Red falls back to local events with a warning.
 
 Tests
 -----

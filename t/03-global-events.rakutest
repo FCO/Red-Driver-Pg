@@ -1,0 +1,80 @@
+use Test;
+use Red:api<2>;
+use Red::Event;
+use Red::AST::Insert;
+
+unless (%*ENV<RED_DATABASE> // '').starts-with('Pg') {
+    my $runner = $?FILE.IO.parent.parent.add('tools/pg-test-exec.sh').absolute;
+    exit run('bash', $runner, $?FILE.IO.absolute).exitcode;
+}
+
+my @conf = %*ENV<RED_DATABASE>.split(' ');
+my $name = @conf.shift;
+my $*RED-DB = database $name,
+    |@conf.map({ my ($key, $value) = .split('=', 2); $key => val $value }).Hash;
+
+model PgGlobalItem is global-notifiable {
+    has UInt $.id   is serial;
+    has Str  $.name is column;
+}
+
+my @ddl = $*RED-DB.global-event-triggers(PgGlobalItem);
+is @ddl.elems, 3, 'trigger DDL is split into idempotent statements';
+my $function-sql = @ddl.first(*.key.contains('event_fn')).value;
+my $trigger-pair = @ddl.first(*.key.starts-with('red_event_trg_'));
+like $function-sql, /"pg_notify('red_events'"/, 'trigger publishes to the shared channel';
+like $function-sql, /'json_build_object'/, 'payload is a JSON object';
+like $function-sql, /'NEW."id"'/, 'payload carries the primary key';
+like $trigger-pair.value, /'AFTER INSERT'/, 'trigger runs after insert';
+ok $trigger-pair.key.starts-with('red_event_trg_'),
+    'trigger name is stable and namespaced';
+
+unless $*RED-DB.supports-global-events {
+    skip 'Pg LISTEN requires the epoll module', 4;
+    done-testing;
+    exit 0;
+}
+
+schema(PgGlobalItem).drop.create;
+$*RED-DB.auto-register;
+Red.start-global-events(:with($*RED-DB));
+
+my @names;
+my $tap = PgGlobalItem.^all.Supply.tap(-> $item { @names.push($item.name) });
+LEAVE $tap.close;
+
+PgGlobalItem.^create(:name<remote>);
+
+my $ready = Promise.new;
+start {
+    while @names.elems < 1 && $ready.status !~~ Kept {
+        sleep 0.05
+    }
+    $ready.keep(True)
+}
+await Promise.anyof($ready, Promise.in(10));
+
+is @names.elems, 1, 'notification reached the live supply';
+is @names[0], 'remote', 'live row was fetched from the database';
+
+{
+    my @local-inserts;
+    my $local-tap = Red.events.tap(-> Red::Event $event {
+        @local-inserts.push($event) if $event.data ~~ Red::AST::Insert;
+    });
+    LEAVE $local-tap.close;
+    PgGlobalItem.^create(:name<second>);
+    is @local-inserts.elems, 0, 'marked model does not emit a local insert event';
+}
+
+my $ready-second = Promise.new;
+start {
+    while @names.elems < 2 && $ready-second.status !~~ Kept {
+        sleep 0.05
+    }
+    $ready-second.keep(True)
+}
+await Promise.anyof($ready-second, Promise.in(10));
+is @names[1], 'second', 'second notification was delivered';
+
+done-testing;

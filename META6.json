@@ -8,8 +8,9 @@
   ],
   "depends": [
     "DB::Pg",
+    "JSON::Fast",
     "UUID",
-    "Red:ver<0.2.10+>:api<2>"
+    "Red:ver<0.2.15+>:api<2>"
   ],
   "description": "PostgreSQL driver for the Red ORM",
   "license": "Artistic-2.0",
@@ -18,6 +19,7 @@
   "provides": {
     "Red::Driver::Pg": "lib/Red/Driver/Pg.rakumod",
     "Red::Driver::Pg::AST": "lib/Red/Driver/Pg/AST.rakumod",
+    "Red::Driver::Pg::Events": "lib/Red/Driver/Pg/Events.rakumod",
     "Red::Driver::Pg::Migrations": "lib/Red/Driver/Pg/Migrations.rakumod",
     "Red::Driver::Pg::Regex": "lib/Red/Driver/Pg/Regex.rakumod",
     "Red::Driver::Pg::Schema": "lib/Red/Driver/Pg/Schema.rakumod",

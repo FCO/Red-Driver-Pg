@@ -1,6 +1,13 @@
 Revision history for Red::Driver::Pg
 
 {{$NEXT}}
+    - Add is global-notifiable support through PostgreSQL AFTER INSERT triggers and
+      pg_notify on the red_events channel.
+    - Decode LISTEN payloads into Red global events so ResultSeq.Supply works across
+      processes and nodes.
+    - Capture and migrate notification trigger DDL in schema snapshots.
+    - Use a stable DB::Pg handle for LISTEN callbacks outside transaction scopes.
+    - Require Red 0.2.15 or later for the global event driver hooks.
 
 0.0.2  2026-11-14T16:25:47Z
     - Require Red 0.2.10 or later (API 2).

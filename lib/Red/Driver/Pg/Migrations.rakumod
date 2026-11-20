@@ -1,6 +1,7 @@
 use Red::Driver::Pg::Support;
+use Red::Driver::Pg::Events;
 
-unit role Red::Driver::Pg::Migrations does Red::Driver::Pg::Support;
+unit role Red::Driver::Pg::Migrations does Red::Driver::Pg::Support does Red::Driver::Pg::Events;
 
 method migration-transactional-ddl(--> Bool:D) { True }
 method migration-session {
