@@ -1,6 +1,8 @@
 Revision history for Red::Driver::Pg
 
 {{$NEXT}}
+    - Select the local Red checkout consistently for direct prove6 and executor runs.
+    - Require Red 0.2.16 for row security and administration support.
     - Add is global-notifiable support through PostgreSQL AFTER INSERT triggers and
       pg_notify on the red_events channel.
     - Decode LISTEN payloads into Red global events so ResultSeq.Supply works across

@@ -10,7 +10,7 @@
     "DB::Pg",
     "JSON::Fast",
     "UUID",
-    "Red:ver<0.2.15+>:api<2>"
+    "Red:ver<0.2.16+>:api<2>"
   ],
   "description": "PostgreSQL driver for the Red ORM",
   "license": "Artistic-2.0",

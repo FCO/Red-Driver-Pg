@@ -1,3 +1,6 @@
+use lib $?FILE.IO.parent.add('lib').Str;
+use RedTestSource;
+use lib red-test-source();
 use Test;
 use Red::Driver::Pg::Support;
 

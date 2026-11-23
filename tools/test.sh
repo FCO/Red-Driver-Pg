@@ -3,6 +3,9 @@ set -eu
 
 driver_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 red_source=${RED_SOURCE:-/red}
+if [ -z "${RED_SOURCE:-}" ] && [ ! -d "$red_source/lib" ] && [ -d "$driver_root/../Red/lib" ]; then
+    red_source="$driver_root/../Red"
+fi
 export RED_SOURCE="$red_source"
 
 cd "$driver_root"

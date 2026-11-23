@@ -8,6 +8,9 @@ fi
 
 source_root=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 red_source=${RED_SOURCE:-/red}
+if [ -z "${RED_SOURCE:-}" ] && [ ! -d "$red_source/lib" ] && [ -d "$source_root/../Red/lib" ]; then
+    red_source="$source_root/../Red"
+fi
 export PGHOST=${PGHOST:-127.0.0.1}
 export PGPORT=${PGPORT:-5432}
 export PGUSER=${PGUSER:-postgres}

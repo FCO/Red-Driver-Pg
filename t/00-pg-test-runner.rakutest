@@ -1,4 +1,6 @@
 use Test;
+use lib $?FILE.IO.parent.add('lib').Str;
+use RedTestSource;
 
 my $runner = $?FILE.IO.parent.parent.add('tools/pg-test-exec.sh').absolute;
 my $directory = $*TMPDIR.add("red-pg-runner-{$*PID}-{1000000.rand.Int}");
@@ -80,6 +82,17 @@ subtest 'Failures preserve their status and still clean up', {
     like %cleanup<err>, /'Failed to remove PostgreSQL test database'/;
     my %both = execute(:test(23), :drop(9));
     is %both<status>, 23, 'Cleanup failures do not overwrite a failing test status';
+};
+
+subtest 'Explicit Red checkout selection', {
+    my $checkout = $directory.add('Red checkout');
+    $checkout.mkdir;
+    $checkout.add('lib').mkdir;
+    temp %*ENV<RED_SOURCE> = $checkout.Str;
+    is red-test-source(), $checkout.add('lib').Str,
+        'RED_SOURCE takes precedence and preserves spaces';
+    %*ENV<RED_SOURCE> = $directory.add('missing').Str;
+    dies-ok { red-test-source() }, 'Invalid explicit checkout fails clearly';
 };
 
 done-testing;

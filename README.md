@@ -3,7 +3,7 @@ Red::Driver::Pg
 
 PostgreSQL driver for the [Red](https://github.com/FCO/Red) ORM.
 
-This driver requires Red 0.2.15 or later with API 2 and is distributed separately from Red. Installing Red alone does not install `DB::Pg` or require PostgreSQL client libraries.
+This driver requires Red 0.2.16 or later with API 2 and is distributed separately from Red. Installing Red alone does not install `DB::Pg` or require PostgreSQL client libraries.
 
 Install
 -------
@@ -60,6 +60,10 @@ Set `RED_SOURCE` to a Red checkout and configure the connection with `PGHOST`, `
     RED_SOURCE=/path/to/Red sh tools/test.sh
 
 This runs the driver-specific tests followed by the complete Red suite against PostgreSQL. `TEST_JOBS` controls parallelism and defaults to 4. Set `RAKUDO_RAKUAST=1` to test the RakuAST frontend.
+
+When available, the test tools use `/red` or a sibling `../Red` checkout automatically.
+Set `RED_SOURCE` to select a different checkout. Direct `prove6 -lv t` runs use the
+same selection; without a checkout they use the installed Red distribution.
 
 To run only the driver-specific tests:
 

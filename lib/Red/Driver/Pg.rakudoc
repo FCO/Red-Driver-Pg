@@ -4,7 +4,7 @@
 
 PostgreSQL driver for the L<Red|https://github.com/FCO/Red> ORM.
 
-This driver requires Red 0.2.15 or later with API 2 and is distributed separately from Red. Installing Red alone does not install
+This driver requires Red 0.2.16 or later with API 2 and is distributed separately from Red. Installing Red alone does not install
 C<DB::Pg> or require PostgreSQL client libraries.
 
 =head2 Install
@@ -70,6 +70,10 @@ C<PGUSER>, C<PGPASSWORD>, and optionally C<PGDATABASE> for the maintenance datab
 This runs the driver-specific tests followed by the complete Red suite against PostgreSQL.
 C<TEST_JOBS> controls parallelism and defaults to 4. Set C<RAKUDO_RAKUAST=1> to test the
 RakuAST frontend.
+
+When available, the test tools use C</red> or a sibling C<../Red> checkout automatically.
+Set C<RED_SOURCE> to select a different checkout. Direct C<prove6 -lv t> runs use the
+same selection; without a checkout they use the installed Red distribution.
 
 To run only the driver-specific tests:
 
