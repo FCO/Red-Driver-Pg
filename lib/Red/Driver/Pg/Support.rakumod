@@ -1,3 +1,4 @@
+use X::Red::Exceptions;
 use Red::AST;
 use Red::AST::Infix;
 use Red::AST::Unary;
@@ -89,4 +90,29 @@ method index-key-fingerprint(Str $key --> Str) {
     }
         @tokens
     }))
+}
+
+# Administrative DDL deliberately runs on this connection, outside migration wrappers.
+method create-database(Str:D $name, Str :$owner) {
+    my $sql = 'CREATE DATABASE ' ~ self.table-name-wrapper($name);
+    $sql ~= ' OWNER ' ~ self.table-name-wrapper($owner) if $owner.defined;
+    self.execute($sql);
+    True
+}
+
+method administration-password(Str:D $password --> Str:D) {
+    X::Red::Administration.new(:reason('Passwords cannot contain NUL')).throw
+        if $password.contains("\0");
+    "E'" ~ $password.subst("\\", "\\\\", :g).subst("'", "''", :g) ~ "'"
+}
+
+method create-user(Str:D $name, Str :$password!) {
+    self.execute('CREATE USER ' ~ self.table-name-wrapper($name)
+        ~ ' PASSWORD ' ~ self.administration-password($password));
+    True
+}
+
+method create-role(Str:D $name) {
+    self.execute('CREATE ROLE ' ~ self.table-name-wrapper($name));
+    True
 }

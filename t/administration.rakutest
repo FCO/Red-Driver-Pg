@@ -1,0 +1,21 @@
+use Test;
+use X::Red::Exceptions;
+use Red::Driver::Pg::Support;
+
+class PgAdmin does Red::Driver::Pg::Support {
+    has @.sql;
+    method execute(Str $sql, *@bind) { @!sql.push($sql) }
+    multi method prepare(Str $sql) { }
+    method schema-reader { }
+}
+my $pg = PgAdmin.new;
+$pg.create-database('a"b', :owner('o"w'));
+is $pg.sql.tail, 'CREATE DATABASE "a""b" OWNER "o""w"', 'Pg quotes database and owner';
+$pg.create-user('u"s', :password("p'\\word"));
+is $pg.sql.tail, Q[CREATE USER "u""s" PASSWORD E'p''\\word'],
+    'Pg escapes password and user';
+$pg.create-role('r"o');
+is $pg.sql.tail, 'CREATE ROLE "r""o"', 'Pg quotes role';
+throws-like { $pg.create-user('reader', :password("bad\0password")) },
+    X::Red::Administration, 'Pg rejects NUL passwords';
+done-testing;

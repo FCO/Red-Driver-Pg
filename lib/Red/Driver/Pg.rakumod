@@ -1,3 +1,7 @@
+use Red::RowSecurity;
+use Red::RowSecurity::Context;
+use Red::RowSecurity::PostgreSQL;
+use JSON::Fast;
 use Red::Driver::Pg::AST;
 use Red::Driver::Pg::Support;
 use Red::Driver::Pg::Migrations;
@@ -33,6 +37,78 @@ has Str $!host;
 has Int $!port;
 has Str $!dbname;
 has $.dbh;
+
+sub row-security-row($statement) {
+    my $row := $statement.row;
+    return Nil if $row =:= IterationEnd || !$row;
+    $row
+}
+sub row-security-first($driver, Str:D $sql, *@bind) {
+    row-security-row($driver.execute($sql, |@bind))
+}
+method row-security-transaction-active(--> Bool:D) {
+    $!dbh.^name eq 'DB::Pg::Database'
+}
+
+method row-security-capabilities(--> Map:D) {
+    Map.new(:filter(True), :atomic-write(True), :native(True))
+}
+method row-security-schema($model, %policies --> Array:D) {
+    native-policy-sql(self, $model.^table, %policies)
+}
+method row-security-schema-change($old, $new --> Array:D) {
+    native-policy-change(self, $old, $new)
+}
+method prepare-row-security(@models) {
+    row-security-error('Native row security requires a transaction on the execution connection')
+        unless $!dbh.^name eq 'DB::Pg::Database';
+    my $role = row-security-first(self,
+        'SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user');
+    row-security-error('Row security requires a role without superuser or BYPASSRLS')
+        if $role<rolsuper> || $role<rolbypassrls>;
+    for @models.unique(:as({ policy-model($_).WHICH.Str })) -> $model {
+        my $table = self.table-name-wrapper($model.^table);
+        my $state = row-security-first(self,
+            'SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE oid = to_regclass($1)',
+            $table);
+        row-security-error('Native row security is absent; apply the explicit policy migration')
+            unless $state && $state<relrowsecurity> && $state<relforcerowsecurity>;
+        my %policies = row-policy-descriptors($model);
+        my @expected = <select insert update delete>.map({
+            native-policy-name($_, %policies)
+        }).sort;
+        my $statement = self.execute(q[SELECT polname, obj_description(oid, 'pg_policy') AS signature, ]
+            ~ native-policy-fingerprint()
+            ~ q[ AS fingerprint FROM pg_policy WHERE polrelid = to_regclass($1)], $table);
+        my @actual;
+        while my $row = row-security-row($statement) {
+            row-security-error('Native row security policy was altered outside its migration')
+                unless ($row<signature> // '')
+                    eq policy-version(%policies) ~ ':' ~ $row<fingerprint>;
+            @actual.push: $row<polname>;
+        }
+        row-security-error('Native row security policies do not match the model migration')
+            unless @actual.sort.List eqv @expected.List;
+    }
+    self.execute(q[SELECT set_config('red.row_context', $1, true)],
+        to-json(row-security-context().Hash, :!pretty)).row;
+}
+method check-row-security-write($model) {
+    my $table = self.table-name-wrapper($model.^table);
+    my $trigger = row-security-first(self,
+        'SELECT 1 AS found FROM pg_trigger WHERE tgrelid = to_regclass($1) '
+            ~ 'AND NOT tgisinternal LIMIT 1', $table);
+    row-security-error('Protected PostgreSQL writes do not support user triggers') if $trigger;
+    my $cascade = row-security-first(self,
+        q[SELECT 1 AS found FROM pg_constraint WHERE confrelid = to_regclass($1) AND contype = 'f' ]
+            ~ q[AND (confupdtype NOT IN ('a', 'r') OR confdeltype NOT IN ('a', 'r')) LIMIT 1], $table);
+    row-security-error('Protected PostgreSQL writes do not support cascading foreign keys') if $cascade;
+}
+method lock-row-security-write($query) {
+    return if $query ~~ Red::AST::Insert;
+    self.execute('LOCK TABLE ' ~ self.table-name-wrapper($query.model.^table)
+        ~ ' IN SHARE ROW EXCLUSIVE MODE');
+}
 
 method schema-reader { Red::Driver::Pg::SchemaReader.new(:driver(self)) }
 
