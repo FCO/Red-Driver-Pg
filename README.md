@@ -61,9 +61,7 @@ Set `RED_SOURCE` to a Red checkout and configure the connection with `PGHOST`, `
 
 This runs the driver-specific tests followed by the complete Red suite against PostgreSQL. `TEST_JOBS` controls parallelism and defaults to 4. Set `RAKUDO_RAKUAST=1` to test the RakuAST frontend.
 
-When available, the test tools use `/red` or a sibling `../Red` checkout automatically.
-Set `RED_SOURCE` to select a different checkout. Direct `prove6 -lv t` runs use the
-same selection; without a checkout they use the installed Red distribution.
+When available, the test tools use `/red` or a sibling `../Red` checkout automatically. Set `RED_SOURCE` to select a different checkout. Direct `prove6 -lv t` runs use the same selection; without a checkout they use the installed Red distribution.
 
 To run only the driver-specific tests:
 

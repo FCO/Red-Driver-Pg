@@ -1,6 +1,8 @@
 Revision history for Red::Driver::Pg
 
 {{$NEXT}}
+
+0.0.3  2026-11-24T02:19:34Z
     - Select the local Red checkout consistently for direct prove6 and executor runs.
     - Require Red 0.2.16 for row security and administration support.
     - Add is global-notifiable support through PostgreSQL AFTER INSERT triggers and
