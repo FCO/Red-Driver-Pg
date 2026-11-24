@@ -23,6 +23,17 @@ $bin.add('createdb').spurt(q:to/SCRIPT/);
 echo "createdb $*" >> "$PG_RUNNER_LOG"
 exit "${PG_CREATE_STATUS:-0}"
 SCRIPT
+$bin.add('psql').spurt(q:to/SCRIPT/);
+#!/usr/bin/env bash
+echo "psql $*" >> "$PG_RUNNER_LOG"
+cat >/dev/null
+exit "${PG_ROLE_STATUS:-0}"
+SCRIPT
+$bin.add('dropuser').spurt(q:to/SCRIPT/);
+#!/usr/bin/env bash
+echo "dropuser $*" >> "$PG_RUNNER_LOG"
+exit "${PG_DROP_ROLE_STATUS:-0}"
+SCRIPT
 $bin.add('dropdb').spurt(q:to/SCRIPT/);
 #!/usr/bin/env bash
 echo "dropdb $*" >> "$PG_RUNNER_LOG"
@@ -36,7 +47,8 @@ exit "${PG_TEST_STATUS:-0}"
 SCRIPT
 .chmod(0o755) for $bin.dir;
 
-sub execute(Int :$create = 0, Int :$test = 0, Int :$drop = 0) {
+sub execute(Int :$role = 0, Int :$create = 0, Int :$test = 0, Int :$drop = 0,
+        Int :$drop-role = 0) {
     my $log = $directory.add('commands.log');
     $log.spurt('');
     temp %*ENV<PATH> = $bin.Str ~ ':' ~ (%*ENV<PATH> // '');
@@ -48,6 +60,8 @@ sub execute(Int :$create = 0, Int :$test = 0, Int :$drop = 0) {
     temp %*ENV<PG_CREATE_STATUS> = $create.Str;
     temp %*ENV<PG_TEST_STATUS> = $test.Str;
     temp %*ENV<PG_DROP_STATUS> = $drop.Str;
+    temp %*ENV<PG_ROLE_STATUS> = $role.Str;
+    temp %*ENV<PG_DROP_ROLE_STATUS> = $drop-role.Str;
     my $process = run 'bash', $runner, 'test file.rakutest', :out, :err;
     my $out = $process.out.slurp-rest;
     my $err = $process.err.slurp-rest;
@@ -58,13 +72,17 @@ subtest 'The executor isolates and removes each test database', {
     my %first = execute;
     is %first<status>, 0, 'Successful tests succeed';
     is %first<out>, '', 'The executor does not add non-TAP output';
-    like %first<commands>[0], /^ 'createdb --maintenance-db=postgres --template=template0 red_pg_test_' \d+ $/;
-    my $database = %first<commands>[0].words.tail;
-    is %first<commands>[2], "Pg host=127.0.0.1 port=5432 dbname=$database user=postgres",
+    my $database = %first<commands>[1].words.tail;
+    is %first<commands>[0], "psql -X -q --dbname=postgres --set=ON_ERROR_STOP=1 --set=role=$database",
+        'An isolated login is created using the maintenance connection';
+    is %first<commands>[1], "createdb --maintenance-db=postgres --template=template0 --owner=$database $database",
+        'The test role owns its database';
+    is %first<commands>[3], "Pg host=127.0.0.1 port=5432 dbname=$database user=$database",
         'The test receives the isolated database configuration';
-    is %first<commands>[3], "dropdb --maintenance-db=postgres --if-exists $database",
+    is %first<commands>[4], "dropdb --maintenance-db=postgres --if-exists $database",
         'Cleanup removes the database that was created';
-    like %first<commands>[1], /^ 'raku[3] ' .* 'test file.rakutest' $/,
+    is %first<commands>[5], "dropuser --if-exists $database", 'Cleanup removes the isolated login';
+    like %first<commands>[2], /^ 'raku[3] ' .* 'test file.rakutest' $/,
         'Test paths remain one argument and both module paths are included';
     my %second = execute;
     isnt %second<commands>[0], %first<commands>[0], 'Invocations use different databases';
@@ -73,15 +91,23 @@ subtest 'The executor isolates and removes each test database', {
 subtest 'Failures preserve their status and still clean up', {
     my %failed = execute(:test(23));
     is %failed<status>, 23, 'The test exit status is preserved';
-    like %failed<commands>.tail, /^ 'dropdb '/, 'Failing tests still remove their database';
+    like %failed<commands>[4], /^ 'dropdb '/, 'Failing tests still remove their database';
+    like %failed<commands>.tail, /^ 'dropuser '/, 'Failing tests still remove their role';
     my %creation = execute(:create(7));
     is %creation<status>, 7, 'Database creation failures stop the executor';
-    is %creation<commands>.elems, 1, 'A creation failure neither runs tests nor drops a database';
+    is %creation<commands>.elems, 3, 'A database creation failure cleans up only the role';
+    like %creation<commands>.tail, /^ 'dropuser '/;
+    my %role = execute(:role(8));
+    is %role<status>, 8, 'Role creation failures stop the executor';
+    is %role<commands>.elems, 1, 'Role creation failures do not run tests or cleanup';
     my %cleanup = execute(:drop(9));
     is %cleanup<status>, 9, 'Cleanup failures are reported';
     like %cleanup<err>, /'Failed to remove PostgreSQL test database'/;
     my %both = execute(:test(23), :drop(9));
     is %both<status>, 23, 'Cleanup failures do not overwrite a failing test status';
+    is execute(:drop-role(11))<status>, 11, 'Role cleanup failures are reported';
+    is execute(:test(23), :drop-role(11))<status>, 23,
+        'Role cleanup failures preserve a failing test status';
 };
 
 subtest 'Explicit Red checkout selection', {

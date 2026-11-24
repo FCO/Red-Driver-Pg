@@ -47,7 +47,7 @@ Models marked with `is global-notifiable` publish committed inserts through Post
 Tests
 -----
 
-The test executor creates a separate disposable database for every test file and drops it afterward. The configured PostgreSQL user needs permission to create and drop databases.
+The test executor creates a separate disposable login and database for every test file and drops both afterward. The configured PostgreSQL user needs permission to create and drop roles and databases. Test logins are neither superusers nor `BYPASSRLS` roles.
 
 Install the test tooling and the dependencies of both checkouts:
 
@@ -69,7 +69,7 @@ To run only the driver-specific tests:
 
     prove6 -j 4 -e "bash $PWD/tools/pg-test-exec.sh" t
 
-`mi6 test` also runs the PostgreSQL integration files. Without a Pg `RED_DATABASE`, these files invoke the executor to create and remove their own databases, using `PGHOST` (default `127.0.0.1`), `PGPORT` (`5432`), and `PGUSER` (`postgres`). PostgreSQL and the `createdb`/`dropdb` client tools must be available; connection or database creation failures fail the tests instead of skipping them.
+`mi6 test` also runs the PostgreSQL integration files. Without a Pg `RED_DATABASE`, these files invoke the executor to create and remove their own logins and databases, using `PGHOST` (default `127.0.0.1`), `PGPORT` (`5432`), and `PGUSER` (`postgres`). PostgreSQL and the `psql`, `createdb`/`dropdb`, and `dropuser` client tools must be available; connection or resource creation failures fail the tests instead of skipping them.
 
 GitHub Actions runs both suites with PostgreSQL 15, Rakudo 2026.09, the Red `master` branch, and both RakuAST frontend settings.
 

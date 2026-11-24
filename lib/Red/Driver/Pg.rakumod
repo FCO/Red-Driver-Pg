@@ -1,6 +1,7 @@
 use Red::RowSecurity;
 use Red::RowSecurity::Context;
 use Red::RowSecurity::PostgreSQL;
+use Red::RowSecurity::Statement;
 use JSON::Fast;
 use Red::Driver::Pg::AST;
 use Red::Driver::Pg::Support;
@@ -596,20 +597,56 @@ multi method translate(Red::AST::Insert $_, $context?) {
         .value.value.defined || (.value.column.DEFINITE
             && .value.column.attr.type ~~ Json && !(.value.value === Json))
     });
-    return "INSERT INTO { self.table-name-wrapper: .into.^table } "
-        ~ "DEFAULT VALUES RETURNING *" => [] unless @values;
-    my @bind = @values.map: { self.wildcard-value: .value };
-    "INSERT INTO {
-        self.table-name-wrapper: .into.^table
-    }(\n{
-        @values>>.key.join(",\n").indent: 3
-    }\n)\nVALUES(\n{
-        @values.map({
-            my $placeholder = self.wildcard;
-            .value.column.attr.type ~~ Json
-                ?? "$placeholder\::text::jsonb" !! $placeholder
-        }).join(",\n").indent: 3
-    }\n) RETURNING *" => @bind
+    my $select-protected = .into.^can('SELECT-ALLOWED-IF');
+    my $returning = $select-protected ?? '' !! ' RETURNING *';
+    my @statements;
+    if @values {
+        my @bind = @values.map: { self.wildcard-value: .value };
+        @statements.push: "INSERT INTO {
+            self.table-name-wrapper: .into.^table
+        }(\n{
+            @values>>.key.join(",\n").indent: 3
+        }\n)\nVALUES(\n{
+            @values.map({
+                my $placeholder = self.wildcard;
+                .value.column.attr.type ~~ Json
+                    ?? "$placeholder\::text::jsonb" !! $placeholder
+            }).join(",\n").indent: 3
+        }\n)$returning" => @bind;
+    } else {
+        @statements.push: "INSERT INTO { self.table-name-wrapper: .into.^table } "
+            ~ "DEFAULT VALUES$returning" => [];
+    }
+    return @statements.head unless $select-protected;
+
+    # PostgreSQL applies SELECT policies to RETURNING. Projection of the values
+    # already supplied keeps an allowed INSERT independent of SELECT permission.
+    my %values = @values.map({ .key => .value });
+    my @row;
+    my @row-bind;
+    {
+        my Int $*bind-counter = 0;
+        for .into.^columns -> $attribute {
+            my $column = $attribute.column;
+            my $name = $column.name;
+            my $wrapped = self.table-name-wrapper($name);
+            with %values{$name} {
+                my $placeholder = self.wildcard;
+                $placeholder ~= '::text::jsonb' if .column.attr.type ~~ Json;
+                @row.push: "$placeholder AS $wrapped";
+                @row-bind.push: self.wildcard-value($_);
+            } elsif $column.auto-increment {
+                my $table = self.table-name-wrapper(.into.^table).subst("'", "''", :g);
+                my $sequence-column = $name.subst("'", "''", :g);
+                @row.push: "currval(pg_get_serial_sequence('$table', '$sequence-column'))"
+                    ~ " AS $wrapped";
+            } else {
+                @row.push: "NULL AS $wrapped";
+            }
+        }
+    }
+    @statements.push: ('SELECT ' ~ @row.join(', ')) => @row-bind;
+    @statements.List
 }
 
 multi method translate(Red::AST::Mod $_, $context?) {
@@ -654,6 +691,32 @@ class Statement does Red::Statement {
 }
 
 method comment-on-same-statement { False }
+
+multi method prepare(Red::AST $query where { protected-row-query($_) }) {
+    row-security-error('Structured DELETE requires model metadata; use textual SQL explicitly')
+        if $query ~~ ::('Red::AST::Delete') && $query.model !~~ ::('Red::Model');
+    row-security-error('Queries inside row policy methods are not supported')
+        if DYNAMIC::<$*RED-ROW-POLICY-COMPILING>;
+    # A committed insert can emit while its dynamic transaction flag is still set.
+    if self.row-security-capabilities<native> && !self.?transaction-guard.DEFINITE
+            && ($!dbh.^name ne 'DB::Pg::Database' || !$*RED-TRANSACTION-RUNNING) {
+        policy-context();
+        return Red::RowSecurity::Statement.new(:driver(self), :$query,
+            :row-context(row-security-context()));
+    }
+    my $secured = secure-row-query(self, $query);
+    note $secured if $*RED-DEBUG-AST;
+    do for |self.translate: self.optimize: $secured -> Pair:D $data {
+        my ($sql, @bind) := ($data.key, $data.value);
+        next unless $sql;
+        do unless $*RED-DRY-RUN {
+            my $stt = self.prepare: $sql;
+            $stt.predefined-bind;
+            $stt.binds = @bind.map: { self.deflate: $_ };
+            $stt.row-context-bound(row-security-context())
+        }
+    }
+}
 
 multi method prepare(Str $query) {
     CATCH { default { self.map-exception($_).throw } }

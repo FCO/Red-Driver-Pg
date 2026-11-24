@@ -19,10 +19,31 @@ model PgSerial { has Int $.id is serial }
 model NaturalKey { has Str $.id is id; has Str $.value is column }
 model CompositeKey { has Int $.a is id; has Str $.b is id; has Str $.value is column }
 model PgJson { has Int $.id is serial; has Json $.value is column{ :nullable } }
-schema(PgSerial, NaturalKey, CompositeKey, PgJson).drop.create;
+model PgSelectOnly {
+    has Int $.id is serial;
+    has Int $.tenant is column;
+    has Str $.value is column;
+    method SELECT-ALLOWED-IF(%context) { self.tenant == %context<tenant> }
+}
+schema(PgSerial, NaturalKey, CompositeKey, PgJson, PgSelectOnly).drop.create;
 
 is PgSerial.^create.id, 1, 'empty insert retrieves generated id';
 is PgSerial.^create.id, 2, 'generated ids advance';
+my $select-only = PgSelectOnly.^create(:tenant(1), :value<inserted>);
+is $select-only.id, 1, 'protected insert retrieves the generated id without SELECT context';
+is $select-only.tenant, 1, 'protected insert returns a supplied numeric value';
+is $select-only.value, 'inserted', 'protected insert returns a supplied string value';
+{
+    my %*RED-CONTEXT = :tenant(2);
+    my $hidden = PgSelectOnly.^create(:tenant(1), :value<hidden>);
+    is $hidden.id, 2, 'INSERT remains independent of SELECT permission';
+    is PgSelectOnly.^all.elems, 0, 'SELECT policy still hides the inserted rows';
+}
+{
+    my %*RED-CONTEXT = :tenant(1);
+    is PgSelectOnly.^all.map(*.value).sort.List, <hidden inserted>.List,
+        'rows remain visible in their authorized SELECT context';
+}
 my $natural = NaturalKey.^create(:id<alpha>, :value("back\\slash and 'quote"));
 is $natural.id, 'alpha', 'insert with a supplied string id';
 is $natural.value, "back\\slash and 'quote", 'bound strings round trip';
